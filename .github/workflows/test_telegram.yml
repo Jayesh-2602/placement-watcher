@@ -12,22 +12,31 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
-            echo "ERROR: TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID secret is missing!"
+          if [ -z "$TELEGRAM_BOT_TOKEN" ]; then
+            echo "### ❌ Error: Missing Secret" >> $GITHUB_STEP_SUMMARY
+            echo "The secret **TELEGRAM_BOT_TOKEN** is not set in GitHub Secrets!" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          if [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "### ❌ Error: Missing Secret" >> $GITHUB_STEP_SUMMARY
+            echo "The secret **TELEGRAM_CHAT_ID** is not set in GitHub Secrets!" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
           
-          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+          RESPONSE=$(curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -d "chat_id=${TELEGRAM_CHAT_ID}" \
             -d "parse_mode=HTML" \
             -d "text=🎉 <b>Placement Watcher Connected!</b>%0A%0AYour Telegram bot is working perfectly with GitHub Actions. You will receive notifications here whenever a new notice is posted on the placement portal.")
           
-          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
-          BODY=$(echo "$RESPONSE" | sed '$d')
-          
-          echo "Telegram Response: $BODY"
-          if [ "$HTTP_STATUS" -ne 200 ]; then
-            echo "Failed with HTTP $HTTP_STATUS"
+          echo "### Telegram API Response" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          echo "$RESPONSE" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+          if echo "$RESPONSE" | grep -q '"ok":true'; then
+            echo "✅ **Success:** Test message delivered to Telegram!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Failed:** Telegram rejected the request. See response above." >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
-          echo "Test message sent successfully!"
