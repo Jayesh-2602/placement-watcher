@@ -1,0 +1,33 @@
+[Unit]
+Description=Placement Portal Watcher
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/watcher
+ExecStart=/home/ubuntu/watcher/venv/bin/python /home/ubuntu/watcher/watch.py
+Restart=on-failure
+RestartSec=30
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+# Environment
+EnvironmentFile=/home/ubuntu/watcher/.env
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/ubuntu/watcher
+PrivateTmp=true
+
+# Logging (also goes to journalctl)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=placement-watcher
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,14 @@
+# Secrets — NEVER commit these
+.env
+state.json
+
+# Database
+seen_messages.db
+
+# Logs
+*.log
+
+# Python
+__pycache__/
+*.pyc
+venv/
