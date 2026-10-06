@@ -224,11 +224,14 @@ def _extract_messages(page: Page) -> list[Message]:
 
 
 def _detect_session_expiry(page: Page) -> bool:
-    """Check if we were redirected to a login/SSO page."""
-    current_url = page.url.lower()
-    for marker in LOGIN_URL_MARKERS:
-        if marker in current_url:
-            return True
+    """Check if we were redirected to a login/SSO page or public landing page."""
+    current_url = page.url.lower().rstrip("/")
+    if any(marker in current_url for marker in LOGIN_URL_MARKERS):
+        return True
+    if current_url in ("https://campus.placements.iitb.ac.in", "http://campus.placements.iitb.ac.in"):
+        return True
+    if "/blog" in PORTAL_URL.lower() and "/blog" not in current_url:
+        return True
     return False
 
 

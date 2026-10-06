@@ -40,22 +40,25 @@ def main() -> None:
         print("3. Return here and press ENTER.")
         print()
 
-        while True:
-            input(">>> Press ENTER once you are logged in and looking at the placement blog: ")
-            current_url = page.url
-            print(f"\n[INFO] Current URL: {current_url}")
-            
-            if "sso" in current_url.lower() or "login" in current_url.lower():
-                print("[WARNING] You are still on the SSO login page!")
-                print("Please finish logging in inside the browser window until the placement blog loads, then press ENTER again.\n")
-                continue
-            
-            if "campus.placements.iitb.ac.in" in current_url:
-                print("[SUCCESS] Verified on placement portal domain!")
+        input(">>> Press ENTER once you are logged in and looking at the placement blog: ")
+        
+        # Check all open tabs/pages in context
+        all_pages = context.pages
+        print(f"\n[INFO] Open tabs detected: {len(all_pages)}")
+        for idx, p in enumerate(all_pages):
+            print(f"  Tab {idx + 1}: {p.url}")
+
+        # Pick the page on the placement portal domain, or the newest tab
+        active_page = None
+        for p in reversed(all_pages):
+            if "campus.placements.iitb.ac.in" in p.url:
+                active_page = p
                 break
-            
-            print(f"[NOTE] URL is {current_url}. If this is the placement blog, we will proceed.")
-            break
+        if not active_page:
+            active_page = all_pages[-1]
+
+        current_url = active_page.url
+        print(f"[INFO] Active URL: {current_url}")
 
         # Save the full browser state (cookies, localStorage, etc.)
         context.storage_state(path=str(STATE_FILE))
