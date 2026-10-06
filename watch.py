@@ -377,7 +377,14 @@ def run_cycle(context: BrowserContext, conn: sqlite3.Connection) -> None:
         # Give JS a moment to render dynamic content
         page.wait_for_timeout(3000)
 
-        # ── Session-expiry check ──────────────────────────────────────
+        # ── Session-expiry check with automatic SSO recovery ──────────
+        if _detect_session_expiry(page):
+            logger.info("Session redirected to %s. Attempting silent SSO re-authentication...", page.url)
+            auth_url = "https://campus.placements.iitb.ac.in/blog/placement/authplacement/"
+            page.goto(auth_url, wait_until="domcontentloaded", timeout=60_000)
+            page.wait_for_timeout(4000)
+            logger.info("After silent re-auth attempt, URL is: %s", page.url)
+
         if _detect_session_expiry(page):
             logger.error("Session expired! Current URL: %s", page.url)
             _notify_alert(

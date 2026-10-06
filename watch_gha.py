@@ -308,7 +308,15 @@ def main() -> None:
             page.goto(PORTAL_URL, wait_until="domcontentloaded", timeout=60_000)
             page.wait_for_timeout(3000)
 
-            # Session expiry
+            # If redirected away or session cookie expired, attempt seamless SSO re-authentication
+            if _detect_session_expiry(page):
+                logger.info("Session redirected to %s. Attempting silent SSO re-authentication...", page.url)
+                auth_url = "https://campus.placements.iitb.ac.in/blog/placement/authplacement/"
+                page.goto(auth_url, wait_until="domcontentloaded", timeout=60_000)
+                page.wait_for_timeout(4000)
+                logger.info("After silent re-auth attempt, URL is: %s", page.url)
+
+            # Check again if session is truly expired (e.g., SSO credentials themselves expired)
             if _detect_session_expiry(page):
                 logger.error("Session expired! URL: %s", page.url)
                 _notify_alert(
