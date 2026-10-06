@@ -274,7 +274,7 @@ def test_database_logic():
 
 
 def test_notification_formatting():
-    """Test that notification text is formatted correctly (no body forwarded)."""
+    """Test that notification text includes the full message body."""
     print()
     print("=" * 60)
     print("  TEST: Notification Formatting")
@@ -286,34 +286,41 @@ def test_notification_formatting():
     title = "TCS Recruitment Drive — Oct 2026"
     date = "02 Oct 2026"
     link = "https://portal.example.com/messages/1234"
+    body = "TCS is visiting campus on 15th October for B.Tech CS/IT students."
 
     # Telegram format
+    body_escaped = html_escape(body)
     tg_text = (
         f"📢 <b>New Placement Notice</b>\n\n"
         f"<b>{html_escape(title)}</b>\n"
-        f"📅 {html_escape(date)}\n"
-        f"🔗 <a href=\"{html_escape(link)}\">Open Message</a>"
+        f"📅 {html_escape(date)}\n\n"
+        f"{body_escaped}\n\n"
+        f"🔗 <a href=\"{html_escape(link)}\">Open on Portal</a>"
     )
 
     assert "TCS Recruitment Drive" in tg_text
     assert date in tg_text
     assert link in tg_text
-    assert "visiting campus" not in tg_text  # body should NOT be included
-    print("  ✅ Telegram: title + date + link only (no body)")
+    assert "visiting campus" in tg_text  # body is now included
+    print("  ✅ Telegram: title + date + full body + link")
 
     # Email format
+    body_html_formatted = html_escape(body).replace("\n", "<br>")
     email_body = (
         f"<h3>New Placement Notice</h3>"
         f"<p><strong>{html_escape(title)}</strong></p>"
-        f"<p>Date: {html_escape(date)}</p>"
-        f"<p><a href=\"{html_escape(link)}\">Open Message</a></p>"
+        f"<p><strong>Date:</strong> {html_escape(date)}</p>"
+        f"<hr/>"
+        f"<div>{body_html_formatted}</div>"
+        f"<hr/>"
+        f"<p><a href=\"{html_escape(link)}\">Open on Portal</a></p>"
     )
 
     assert title in email_body
     assert date in email_body
     assert link in email_body
-    assert "visiting campus" not in email_body
-    print("  ✅ Email: title + date + link only (no body)")
+    assert "visiting campus" in email_body
+    print("  ✅ Email: title + date + full body + link")
 
     # Test HTML escaping
     dangerous_title = "Test <script>alert('xss')</script> & Co."

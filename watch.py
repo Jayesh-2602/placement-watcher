@@ -102,10 +102,10 @@ POLL_INTERVAL = int(_env("POLL_INTERVAL_SECONDS", required=False, default="300")
 SELECTOR_MESSAGE_ITEM = "article, .post, .blog-post, .message-item, .notice-card, tr.message-row, .placement-item, li.list-group-item"
 
 # Within each message item:
-SELECTOR_TITLE = "h2 a, h3 a, .entry-title a, .post-title a, .message-title, a.title"
-SELECTOR_DATE = "time, .date, .entry-date, .post-date, .message-date, .meta-date, span.text-muted"
-SELECTOR_LINK = "a[href]"           # first <a> with href inside the item
-SELECTOR_BODY_PREVIEW = "p, .entry-summary, .excerpt, .message-body, .post-content"
+SELECTOR_TITLE = ".entry-title a, h2 a, h3 a, .post-title a, .message-title, a.title"
+SELECTOR_DATE = "time.entry-date, time, .date, .entry-date, .post-date, .message-date, .meta-date, span.text-muted"
+SELECTOR_LINK = ".entry-title a, h2 a, h3 a, a[rel='bookmark'], a[href]"
+SELECTOR_BODY = ".entry-content, .post-content, .message-body, .entry-summary, .excerpt, p"
 
 # Redirect / login-page detection: if the final URL contains any of these
 # substrings after navigation, we treat it as a session-expiry redirect.
@@ -120,7 +120,7 @@ class Message:
     title: str
     date: str
     link: str          # absolute URL
-    body_preview: str
+    body: str          # full message content
 
 
 def _make_uid(link: str, date: str) -> str:
@@ -201,8 +201,8 @@ def _extract_messages(page: Page) -> list[Message]:
         date_el = item.query_selector(SELECTOR_DATE)
         date = (date_el.inner_text() if date_el else "").strip()
 
-        # Link (first anchor with href)
-        link_el = item.query_selector(SELECTOR_LINK)
+        # Link (prefer entry-title or permalink anchor)
+        link_el = item.query_selector(SELECTOR_LINK) or title_el
         raw_href = link_el.get_attribute("href") if link_el else ""
 
         # BUG FIX: use raw_href for the skip check, not the urljoin'd link.
@@ -213,12 +213,12 @@ def _extract_messages(page: Page) -> list[Message]:
 
         link = urljoin(page.url, raw_href) if raw_href else page.url
 
-        # Body preview
-        body_el = item.query_selector(SELECTOR_BODY_PREVIEW)
-        body_preview = (body_el.inner_text() if body_el else "").strip()[:200]
+        # Full message body
+        body_el = item.query_selector(SELECTOR_BODY)
+        body = (body_el.inner_text() if body_el else "").strip()
 
         uid = _make_uid(link, date)
-        messages.append(Message(uid=uid, title=title, date=date, link=link, body_preview=body_preview))
+        messages.append(Message(uid=uid, title=title, date=date, link=link, body=body))
 
     return messages
 
@@ -294,20 +294,31 @@ def _notify_new_message(msg: Message) -> bool:
     Returns True if at least one channel succeeded.
     """
     # Telegram message (HTML mode)
+    # Telegram limit is 4096 chars total; truncate body if exceptionally long
+    body_text = msg.body
+    if len(body_text) > 3200:
+        body_text = body_text[:3200] + "\n\n... <i>(truncated)</i>"
+    body_escaped = _html_escape(body_text)
+
     tg_text = (
         f"\U0001f4e2 <b>New Placement Notice</b>\n\n"
         f"<b>{_html_escape(msg.title)}</b>\n"
-        f"\U0001f4c5 {_html_escape(msg.date)}\n"
-        f"\U0001f517 <a href=\"{_html_escape(msg.link)}\">Open Message</a>"
+        f"\U0001f4c5 {_html_escape(msg.date)}\n\n"
+        f"{body_escaped}\n\n"
+        f"\U0001f517 <a href=\"{_html_escape(msg.link)}\">Open on Portal</a>"
     )
 
     # Email
     email_subject = f"[Placement] {msg.title}"
+    body_html_formatted = _html_escape(msg.body).replace("\n", "<br>")
     email_body = (
         f"<h3>New Placement Notice</h3>"
         f"<p><strong>{_html_escape(msg.title)}</strong></p>"
-        f"<p>Date: {_html_escape(msg.date)}</p>"
-        f"<p><a href=\"{_html_escape(msg.link)}\">Open Message</a></p>"
+        f"<p><strong>Date:</strong> {_html_escape(msg.date)}</p>"
+        f"<hr/>"
+        f"<div style='white-space: pre-wrap; font-size: 14px; line-height: 1.5;'>{body_html_formatted}</div>"
+        f"<hr/>"
+        f"<p><a href=\"{_html_escape(msg.link)}\">Open on Portal</a></p>"
     )
 
     tg_ok = _send_telegram(tg_text)
